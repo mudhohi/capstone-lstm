@@ -1,0 +1,24 @@
+{
+  "ticker": "BMRI",
+  "lookback": 126,
+  "feature": "Close",
+  "horizon": 1,
+  "data_end_date": "2026-11-06",
+  "tensorflow_version": "2.21.0",
+  "scikit_learn_version": "1.6.1",
+  "keras_version": "3.13.2",
+  "joblib_version": "1.6.0",
+  "numpy_version": "2.4.6",
+  "pandas_version": "2.2.3",
+  "training_seed": 42,
+  "training_rows": 958,
+  "holdout_rows": 240,
+  "metrics": {
+    "wfv_mae": 142.12405002284117,
+    "wfv_rmse": 174.71178344052296,
+    "wfv_mape": 3.120311807930609,
+    "holdout_mae": 103.97434488932292,
+    "holdout_rmse": 139.78322109665282,
+    "holdout_mape": 2.532854008060991
+  }
+}

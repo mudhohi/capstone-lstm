@@ -1,0 +1,24 @@
+{
+  "ticker": "BBNI",
+  "lookback": 63,
+  "feature": "Close",
+  "horizon": 1,
+  "data_end_date": "2026-11-06",
+  "tensorflow_version": "2.21.0",
+  "scikit_learn_version": "1.6.1",
+  "keras_version": "3.13.2",
+  "joblib_version": "1.6.0",
+  "numpy_version": "2.4.6",
+  "pandas_version": "2.2.3",
+  "training_seed": 42,
+  "training_rows": 958,
+  "holdout_rows": 240,
+  "metrics": {
+    "wfv_mae": 113.78204930979553,
+    "wfv_rmse": 138.35562722754491,
+    "wfv_mape": 2.869904655060143,
+    "holdout_mae": 81.34190775553385,
+    "holdout_rmse": 115.35941829260238,
+    "holdout_mape": 2.2726549528368603
+  }
+}

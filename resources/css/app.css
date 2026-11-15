@@ -1,0 +1,35 @@
+@import 'tailwindcss';
+
+/* Token desain (Tailwind v4). Untuk Tailwind v3, pindahkan ke theme.extend di tailwind.config.js. */
+@theme {
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #0F2A43;     /* biru tinta: teks utama, harga aktual */
+  --color-harbor: #0E7C86;  /* teal: aksi utama, border hover */
+  --color-signal: #F2A93B;  /* amber: garis prediksi */
+  --color-mist: #EAF1F6;    /* latar section */
+  --color-paper: #F7F9FB;   /* latar halaman */
+}
+
+[x-cloak] { display: none !important; }
+
+/* Skeleton shimmer: blok abu-abu dengan kilau yang bergerak ke kanan */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #DCE6EE;
+  border-radius: 0.5rem;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}

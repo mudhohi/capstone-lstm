@@ -1,0 +1,9 @@
+# Python 3.10 - 3.12. Samakan versi tensorflow dan scikit-learn dengan Colab tempat model dilatih
+# (di Colab: import tensorflow, sklearn; print(tensorflow.__version__, sklearn.__version__)).
+fastapi>=0.110
+uvicorn[standard]>=0.29
+numpy
+pandas
+joblib
+scikit-learn
+tensorflow>=2.16   # file .keras memerlukan Keras 3
