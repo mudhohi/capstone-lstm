@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DatasetController;
 use App\Http\Controllers\Admin\PreTrainedModelController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\OtpVerificationController;
@@ -76,5 +77,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::resource('models', PreTrainedModelController::class)
             ->except('show')->parameters(['models' => 'model']);
+
+        // Kelola dataset OHLCV: perbarui emiten existing atau tambah emiten baru
+        Route::get('datasets', [DatasetController::class, 'index'])->name('datasets.index');
+        Route::post('datasets', [DatasetController::class, 'store'])->name('datasets.store');
     });
 });

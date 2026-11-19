@@ -15,15 +15,17 @@ class PreTrainedModel extends Model
         'stock_id', 'lookback_window', 'file_path', 'file_format', 'architecture',
         'wfv_folds', 'wfv_mae', 'wfv_rmse', 'wfv_mape',
         'holdout_mae', 'holdout_rmse', 'holdout_mape',
-        'trained_at', 'is_active',
+        'trained_at', 'is_active', 'is_transfer', 'base_model_id',
     ];
 
     protected $casts = [
         'architecture' => 'array',
         'trained_at' => 'datetime',
         'is_active' => 'boolean',
+        'is_transfer' => 'boolean',
     ];
 
     public function stock(): BelongsTo      { return $this->belongsTo(Stock::class); }
     public function predictions(): HasMany  { return $this->hasMany(Prediction::class); }
+    public function baseModel(): BelongsTo  { return $this->belongsTo(self::class, 'base_model_id'); }
 }

@@ -2,30 +2,30 @@
 
 namespace App\Livewire;
 
-use App\Models\PreTrainedModel;
 use App\Models\Stock;
 use App\Services\PredictionService;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 /**
- * View Stock Prediction (+ Search Stocks sebagai filter 4 emiten).
+ * Dashboard prediksi: 4 emiten, 1 model terbaik per emiten (dipilih otomatis).
  *
- * Alur skeleton:
- *  1. Halaman tampil seketika dengan $ready = false -> semua blok berupa skeleton shimmer.
- *  2. wire:init memanggil init() setelah halaman terbuka -> data dimuat.
- *  3. Livewire mengirim event 'prediction-loaded'; grafik ApexCharts digambar di browser.
- *     Skeleton grafik baru hilang setelah chart.render() selesai (lihat view).
+ * Alur pemuatan (agar halaman terasa cepat):
+ *  1. init()         -> grafik LSTM + data analisa teknikal (dari DB)
+ *  2. loadForecast() -> dipanggil browser SETELAH grafik tergambar; memanggil FastAPI sekali
+ *                       untuk 20 hari lalu dipotong sesuai slider, jadi menggeser slider instan.
  */
-#[Layout('components.layouts.app')] // layout eksplisit, tidak bergantung pada default config Livewire
+#[Layout('components.layouts.app')]
 class StockPrediction extends Component
 {
+    public const MAX_HORIZON = 20;
+
     public bool $ready = false;
+    public bool $forecastReady = false;
     public string $ticker = 'BBCA';
-    public int $lookback = 21;
-    public string $search = '';   // Search Stocks: filter nama/ticker
+    public int $lookback = 21;   // diisi otomatis dari model aktif, tidak dipilih pengguna
+    public int $horizon = 1;
 
     public function mount(?string $ticker = null): void
     {
@@ -44,7 +44,6 @@ class StockPrediction extends Component
         }
     }
 
-    /** Dipanggil wire:init: tandai siap, lalu kirim data ke grafik. */
     public function init(): void
     {
         $this->ready = true;
@@ -55,33 +54,60 @@ class StockPrediction extends Component
     {
         if (Stock::where('ticker', $ticker)->exists()) {
             $this->ticker = $ticker;
-            unset($this->stock, $this->models, $this->bestLookback); // buang cache computed
-            $this->alignLookback();   // otomatis pindah ke lookback terbaik saham baru
+            unset($this->stock, $this->models, $this->forecast); // buang cache computed
+            $this->alignLookback();
+            $this->forecastReady = false;   // kartu proyeksi kembali ke skeleton
             $this->pushChart();
         }
     }
 
-    /** Dropdown lookback (wire:model.live) memicu method ini. */
-    public function updatedLookback(): void
+    /** Dipanggil browser setelah grafik LSTM selesai digambar. */
+    public function loadForecast(): void
     {
-        if (! in_array($this->lookback, $this->availableLookbacks(), true)) {
-            $this->alignLookback(); // tolak lookback yang tidak punya model aktif
+        $this->forecastReady = true;
+        $this->dispatch('forecast-updated', forecast: $this->forecastSeries());
+    }
+
+    /** Slider horizon (wire:model.live.debounce). */
+    public function updatedHorizon(): void
+    {
+        $this->horizon = max(1, min(self::MAX_HORIZON, $this->horizon));
+
+        if ($this->forecastReady) {
+            $this->dispatch('forecast-updated', forecast: $this->forecastSeries());
         }
-        $this->pushChart();
     }
 
     private function pushChart(): void
     {
-        $this->dispatch(
-            'prediction-loaded',
-            series: app(PredictionService::class)->series($this->stock, $this->lookback),
-        );
+        $svc = app(PredictionService::class);
+
+        $this->dispatch('prediction-loaded', series: $svc->series($this->stock, $this->lookback));
+        $this->dispatch('technical-loaded', payload: $svc->technical($this->stock, $this->lookback));
     }
 
     #[Computed]
     public function stock(): Stock
     {
         return Stock::where('ticker', $this->ticker)->firstOrFail();
+    }
+
+    /** Emiten yang punya data aktif (harga OHLCV atau model aktif): emiten baru dari Admin otomatis muncul. */
+    #[Computed]
+    public function stocks()
+    {
+        return Stock::where(fn ($q) => $q->has('prices')
+                ->orWhereHas('models', fn ($m) => $m->where('is_active', true)))
+            ->orderBy('ticker')->get();
+    }
+
+    /** Label model asal bila model aktif adalah model transfer, mis. "BMRI (126 hari)". */
+    #[Computed]
+    public function baseLabel(): ?string
+    {
+        $base = $this->models->get($this->lookback)?->baseModel()->with('stock')->first();
+
+        return $base ? "{$base->stock->ticker} ({$base->lookback_window} hari)" : null;
     }
 
     /** Model AKTIF untuk saham terpilih (kebijakan best-model-only), diindeks per lookback. */
@@ -91,42 +117,54 @@ class StockPrediction extends Component
         return $this->stock->models()->where('is_active', true)->orderBy('lookback_window')->get()->keyBy('lookback_window');
     }
 
-    /** Opsi dropdown: hanya lookback yang punya model aktif (fallback ke daftar penuh jika belum ada). */
-    private function availableLookbacks(): array
+    /** Proyeksi N hari bursa (N = slider) + selisih terhadap penutupan aktual terakhir; null jika API mati. */
+    #[Computed]
+    public function forecast(): ?array
     {
-        $active = $this->models->keys()->map(fn ($k) => (int) $k)->all();
+        if (! $this->models->has($this->lookback)) {
+            return null;   // belum ada model aktif: tidak ada yang bisa diprediksi
+        }
 
-        return $active ?: PreTrainedModel::LOOKBACKS;
+        $svc = app(PredictionService::class);
+        $all = $svc->nextDay($this->stock, $this->lookback, self::MAX_HORIZON);
+        $last = $svc->lastActual($this->stock, $this->lookback);
+
+        if (! $all || empty($all['forecasts']) || ! $last) {
+            return null;
+        }
+
+        $rows = array_slice($all['forecasts'], 0, $this->horizon);
+        $target = end($rows);
+        $delta = $target['predicted_close'] - $last['close'];
+
+        return [
+            'rows'   => $rows,
+            'last'   => $last,
+            'target' => $target,
+            'delta'  => $delta,
+            'pct'    => $last['close'] ? $delta / $last['close'] * 100 : null,
+        ];
     }
 
-    /** Lookback dengan MAPE walk-forward terendah (hanya jika metriknya sudah terisi). */
-    #[Computed]
-    public function bestLookback(): ?int
+    /** Titik garis putus-putus: berawal dari penutupan aktual terakhir agar tersambung ke grafik. */
+    private function forecastSeries(): array
     {
-        return $this->models->whereNotNull('wfv_mape')->sortBy('wfv_mape')->first()?->lookback_window;
-    }
+        $f = $this->forecast;
+        if (! $f) {
+            return [];
+        }
 
-    #[Computed]
-    public function filteredStocks()
-    {
-        $q = Str::lower(trim($this->search));
+        $ms = fn (string $d) => strtotime($d . ' 00:00:00 UTC') * 1000;
+        $points = [[$ms($f['last']['date']), (float) $f['last']['close']]];
+        foreach ($f['rows'] as $r) {
+            $points[] = [$ms($r['date']), (float) $r['predicted_close']];
+        }
 
-        return Stock::orderBy('ticker')->get()->filter(
-            fn (Stock $s) => $q === '' || Str::contains(Str::lower($s->ticker . ' ' . $s->name), $q)
-        );
-    }
-
-    /** Prediksi hari bursa berikutnya dari layanan Python (boleh null). */
-    #[Computed]
-    public function nextDay(): ?array
-    {
-        return app(PredictionService::class)->nextDay($this->stock, $this->lookback);
+        return $points;
     }
 
     public function render()
     {
-        return view('livewire.stock-prediction', [
-            'lookbacks' => $this->availableLookbacks(),
-        ]);
+        return view('livewire.stock-prediction');
     }
 }

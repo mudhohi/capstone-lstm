@@ -14,4 +14,5 @@ class Stock extends Model
     public function models(): HasMany      { return $this->hasMany(PreTrainedModel::class); }
     public function predictions(): HasMany { return $this->hasMany(Prediction::class); }
     public function watchlists(): HasMany  { return $this->hasMany(Watchlist::class); }
+    public function prices(): HasMany      { return $this->hasMany(StockPrice::class); }
 }

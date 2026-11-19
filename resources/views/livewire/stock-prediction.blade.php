@@ -1,264 +1,223 @@
 @php
     // Format angka gaya Indonesia; nilai kosong tampil "-" (tidak ada angka rekaan).
     $fmt = fn ($v, $d = 2) => is_null($v) ? '-' : number_format((float) $v, $d, ',', '.');
-    $model = $this->models->get($lookback);
-    $skeletonTargets = 'lookback,selectStock';
+    $model = $ready ? $this->models->get($lookback) : null;
+    // Proyeksi hanya dihitung setelah grafik tergambar (loadForecast), supaya halaman tidak menunggu API Python.
+    $fc = ($ready && $forecastReady) ? $this->forecast : null;
 @endphp
 
 {{-- wire:init: jalankan init() segera setelah halaman terbuka --}}
 <div wire:init="init" class="mx-auto max-w-6xl px-5 py-10">
 
     <h1 class="font-display text-3xl font-extrabold tracking-tight">Prediksi harga penutupan</h1>
-    <p class="mt-2 max-w-prose text-slate-600">Pilih saham dan lookback window untuk membandingkan harga aktual dengan prediksi LSTM.</p>
+    <p class="mt-2 max-w-prose text-slate-600">Pilih saham. Model terbaik dan lookback window-nya dipilih otomatis dari hasil eksperimen.</p>
 
-    {{-- ===================== Search Stocks (filter) + daftar saham ===================== --}}
-    <div class="mt-8">
-        <label for="search" class="sr-only">Cari saham</label>
-        <input id="search" type="search" wire:model.live.debounce.300ms="search" @disabled(! $ready)
-               placeholder="Cari ticker atau nama bank"
-               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm transition-colors duration-200 focus:border-harbor focus:outline-none focus:ring-4 focus:ring-harbor/20 sm:max-w-sm">
-
-        <div class="mt-4 flex flex-wrap gap-3">
-            @unless ($ready)
-                {{-- Skeleton daftar saham saat data belum dimuat --}}
-                @foreach (range(1, 4) as $i)
-                    <x-skeleton class="h-11 w-28 !rounded-xl" />
-                @endforeach
-            @else
-                @forelse ($this->filteredStocks as $s)
-                    <button type="button" wire:key="stock-{{ $s->ticker }}"
-                            wire:click="selectStock('{{ $s->ticker }}')"
-                            x-on:click="$dispatch('prediction-loading')"
-                            @class([
-                                'rounded-xl border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95',
-                                'border-ink bg-ink text-white' => $s->ticker === $ticker,
-                                'border-slate-300 bg-white hover:-translate-y-0.5 hover:border-harbor hover:shadow-md' => $s->ticker !== $ticker,
-                            ])>
-                        {{ $s->ticker }}
-                    </button>
-                @empty
-                    <p class="text-sm text-slate-600">Tidak ada saham yang cocok. Coba BBCA, BBRI, BMRI, atau BBNI.</p>
-                @endforelse
-            @endunless
-        </div>
+    {{-- ===================== Pilihan saham (4 emiten) ===================== --}}
+    <div class="mt-8 flex flex-wrap gap-3">
+        @unless ($ready)
+            @foreach (range(1, 4) as $i)
+                <x-skeleton class="h-11 w-28 !rounded-xl" />
+            @endforeach
+        @else
+            @foreach ($this->stocks as $s)
+                <button type="button" wire:key="stock-{{ $s->ticker }}"
+                        wire:click="selectStock('{{ $s->ticker }}')"
+                        x-on:click="$dispatch('prediction-loading')"
+                        @class([
+                            'rounded-xl border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95',
+                            'border-ink bg-ink text-white' => $s->ticker === $ticker,
+                            'border-slate-300 bg-white hover:-translate-y-0.5 hover:border-harbor hover:shadow-md' => $s->ticker !== $ticker,
+                        ])>
+                    {{ $s->ticker }}
+                </button>
+            @endforeach
+        @endunless
     </div>
 
-    {{-- ===================== Kontrol: lookback + ekspor ===================== --}}
-    <div class="mt-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-            <label for="lookback" class="block text-sm font-medium">Lookback window</label>
-            <select id="lookback" wire:model.live="lookback" x-on:change="$dispatch('prediction-loading')" @disabled(! $ready || count($lookbacks) === 1)
-                    class="mt-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm transition-colors duration-200 focus:border-harbor focus:outline-none focus:ring-4 focus:ring-harbor/20 disabled:opacity-60">
-                @foreach ($lookbacks as $lb)
-                    <option value="{{ $lb }}">{{ $lb }} hari perdagangan</option>
-                @endforeach
-            </select>
-            @if ($ready && count($lookbacks) === 1)
-                <p class="mt-1.5 text-xs text-slate-600">Lookback terbaik untuk {{ $ticker }} dari hasil eksperimen.</p>
-            @endif
-        </div>
-
-        @if ($ready)
+    {{-- ===================== Nama bank + badge model aktif + ekspor ===================== --}}
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+        @unless ($ready)
+            <x-skeleton class="h-8 w-80" />
+        @else
+            <div class="flex flex-wrap items-center gap-3">
+                <h2 class="font-display text-xl font-extrabold">
+                    {{ $this->stock->ticker }}
+                    <span class="font-sans text-base font-normal text-slate-600">{{ $this->stock->name }}</span>
+                </h2>
+                <span class="rounded-full border border-harbor/40 bg-mist px-3 py-1 text-xs font-semibold text-ink">
+                    @if ($model)
+                        Model aktif: lookback {{ $lookback }} hari perdagangan{{ $model->is_transfer ? ' (transfer)' : '' }}
+                    @else
+                        Belum ada model aktif
+                    @endif
+                </span>
+            </div>
             <div class="flex gap-2">
                 <x-button variant="ghost" :href="route('export.prediction', [$ticker, $lookback, 'csv'])">Unduh CSV</x-button>
                 <x-button variant="ghost" :href="route('export.prediction', [$ticker, $lookback, 'pdf'])">Unduh PDF</x-button>
             </div>
+        @endunless
+    </div>
+
+    @if ($ready && $model?->is_transfer)
+        <p class="mt-3 rounded-xl border border-signal/50 bg-amber-50 px-4 py-3 text-sm">
+            Model transfer: prediksi memakai model {{ $this->baseLabel }} dengan scaler yang disesuaikan pada harga {{ $ticker }}.
+            Model ini belum dilatih dan divalidasi khusus untuk {{ $ticker }}, jadi akurasinya belum diketahui.
+        </p>
+    @endif
+
+    {{-- ===================== Grafik LSTM: aktual, prediksi, proyeksi ===================== --}}
+    {{-- wire:ignore: Livewire tidak boleh menimpa DOM grafik. Skeleton berada DI ATAS grafik
+         dan hilang setelah chart.render() selesai. Garis putus-putus "Proyeksi" diperbarui
+         lewat event forecast-updated tanpa menggambar ulang seluruh grafik. --}}
+    <div wire:ignore
+         x-data="{
+            chart: null, chartReady: false, empty: false, base: null, forecast: [],
+            seriesList() {
+                return [
+                    { name: 'Harga aktual', data: this.base.actual },
+                    { name: 'Prediksi LSTM', data: this.base.predicted },
+                    { name: 'Proyeksi ke depan', data: this.forecast },
+                ];
+            },
+            setForecast(f) {
+                this.forecast = f;
+                if (this.chart && this.base) this.chart.updateSeries(this.seriesList(), false);
+            },
+            async draw(s) {
+                this.base = s;
+                this.empty = s.actual.length === 0;
+                if (this.chart) { this.chart.destroy(); this.chart = null; }
+                if (this.empty) { this.chartReady = true; this.$wire.loadForecast(); return; }
+                const rp = (v) => 'Rp ' + Math.round(v).toLocaleString('id-ID');
+                this.chart = new ApexCharts(this.$refs.canvas, {
+                    chart: { type: 'line', height: 420, toolbar: { show: true }, zoom: { enabled: true },
+                             animations: { speed: 400 }, fontFamily: 'IBM Plex Sans, sans-serif' },
+                    series: this.seriesList(),
+                    colors: ['#0F2A43', '#F2A93B', '#0E7C86'],
+                    stroke: { width: [2, 2, 2.5], dashArray: [0, 0, 6], curve: 'straight' },
+                    xaxis: { type: 'datetime' },
+                    yaxis: { labels: { formatter: rp } },
+                    tooltip: { x: { format: 'dd MMM yyyy' }, y: { formatter: rp } },
+                    legend: { position: 'top' },
+                    annotations: s.holdoutStart ? { xaxis: [{ x: s.holdoutStart, borderColor: '#0E7C86',
+                        label: { text: 'Final holdout', style: { color: '#fff', background: '#0E7C86' } } }] } : {},
+                });
+                await this.chart.render();
+                this.chartReady = true;   // skeleton hilang HANYA setelah grafik benar-benar tergambar
+                this.$wire.loadForecast(); // lanjut: minta proyeksi dari layanan Python
+            }
+         }"
+         x-on:prediction-loading.window="chartReady = false; forecast = []"
+         x-on:prediction-loaded.window="draw($event.detail.series)"
+         x-on:forecast-updated.window="setForecast($event.detail.forecast)"
+         class="relative mt-6 min-h-[440px] rounded-2xl border border-slate-200 bg-white p-4">
+
+        <div x-ref="canvas"></div>
+
+        <div x-show="! chartReady" x-transition.opacity.duration.200ms class="absolute inset-4 z-10 flex flex-col gap-3 bg-white" aria-busy="true">
+            <x-skeleton class="h-6 w-48" />
+            <x-skeleton class="w-full flex-1" />
+            <x-skeleton class="h-4 w-full" />
+        </div>
+
+        <p x-show="empty" x-cloak class="absolute inset-0 z-20 flex items-center justify-center px-8 text-center text-slate-600">
+            Belum ada data harga untuk saham ini. Unggah dataset lewat menu Kelola dataset.
+        </p>
+    </div>
+
+    {{-- ===================== Prediksi hari bursa ke depan (slider horizon) ===================== --}}
+    <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 class="font-display text-xl font-extrabold">Prediksi hari bursa ke depan</h2>
+
+        <div class="mt-4">
+            <label for="horizon" class="block text-sm font-medium">
+                Horizon: {{ $horizon }} hari bursa
+                @if ($fc)
+                    <span class="font-normal text-slate-600">({{ $fc['rows'][0]['date'] }} s.d. {{ $fc['target']['date'] }})</span>
+                @endif
+            </label>
+            <input id="horizon" type="range" min="1" max="20" step="1"
+                   wire:model.live.debounce.250ms="horizon" @disabled(! $forecastReady)
+                   class="mt-2 w-full accent-harbor disabled:opacity-50">
+            <div class="flex justify-between text-xs text-slate-600"><span>1 hari</span><span>20 hari</span></div>
+        </div>
+
+        @if (! $ready || ! $forecastReady)
+            <div class="mt-5 grid gap-4 sm:grid-cols-3" aria-busy="true">
+                @foreach (range(1, 3) as $i)
+                    <div class="rounded-xl border border-slate-200 p-4">
+                        <x-skeleton class="h-4 w-28" />
+                        <x-skeleton class="mt-3 h-8 w-36" />
+                        <x-skeleton class="mt-3 h-3 w-24" />
+                    </div>
+                @endforeach
+            </div>
+        @elseif ($fc)
+            @php
+                $up = $fc['delta'] >= 0;
+                $tone = $up ? 'text-green-700' : 'text-red-700';
+                $sign = $up ? '+' : '-';
+            @endphp
+            <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <div class="text-sm font-medium text-slate-600">Prediksi hari ke-{{ $horizon }} ({{ $fc['target']['date'] }})</div>
+                    <div class="mt-2 font-display text-3xl font-extrabold">Rp {{ $fmt($fc['target']['predicted_close'], 0) }}</div>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <div class="text-sm font-medium text-slate-600">Penutupan aktual terakhir ({{ $fc['last']['date'] }})</div>
+                    <div class="mt-2 font-display text-3xl font-extrabold">Rp {{ $fmt($fc['last']['close'], 0) }}</div>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <div class="text-sm font-medium text-slate-600">Perubahan terhadap penutupan terakhir</div>
+                    <div class="mt-2 font-display text-3xl font-extrabold {{ $tone }}">
+                        {{ $up ? 'Naik' : 'Turun' }} Rp {{ $fmt(abs($fc['delta']), 0) }}
+                    </div>
+                    <div class="mt-1 text-sm font-semibold {{ $tone }}">{{ $sign }}{{ $fmt(abs($fc['pct']), 2) }}%</div>
+                </div>
+            </div>
+
+            <div class="mt-5 max-h-64 overflow-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-sm">
+                    <thead class="sticky top-0 bg-mist text-slate-600">
+                        <tr>
+                            <th class="px-4 py-2 font-medium">Hari ke-</th>
+                            <th class="px-4 py-2 font-medium">Tanggal</th>
+                            <th class="px-4 py-2 font-medium">Prediksi (Rp)</th>
+                            <th class="px-4 py-2 font-medium">Selisih vs aktual terakhir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($fc['rows'] as $r)
+                            @php $p = $fc['last']['close'] ? ($r['predicted_close'] / $fc['last']['close'] - 1) * 100 : null; @endphp
+                            <tr wire:key="fc-{{ $r['step'] }}" class="border-t border-slate-100">
+                                <td class="px-4 py-2">{{ $r['step'] }}</td>
+                                <td class="px-4 py-2">{{ $r['date'] }}</td>
+                                <td class="px-4 py-2">{{ $fmt($r['predicted_close'], 0) }}</td>
+                                <td class="px-4 py-2">{{ is_null($p) ? '-' : (($p >= 0 ? '+' : '-') . $fmt(abs($p), 2) . '%') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-sm text-slate-600">
+                Prediksi multi-step bersifat rekursif: hasil tiap hari menjadi masukan hari berikutnya, sehingga error menumpuk pada horizon yang panjang.
+                Akhir pekan dilewati, libur bursa belum diperhitungkan. Hasil ini bersifat akademik dan bukan saran investasi.
+            </p>
+        @else
+            <p class="mt-5 text-slate-600">Layanan prediksi Python belum aktif atau belum merespons. Grafik di atas tetap memakai hasil yang tersimpan.</p>
         @endif
     </div>
 
-    {{-- ===================== Panel Grafik Utama & Analisa Teknikal (ApexCharts) ===================== --}}
-    <div wire:ignore
-         x-data="{
-            mainChart: null,
-            maChart: null,
-            chartReady: false,
-            empty: false,
-            lastSeries: null,
-            selectedMAs: [7, 20], // Default aktif lebih dari satu (MA 7 & MA 20)
-            maOptions: [
-                { period: 7,  label: 'MA 7',  color: '#0E7C86' },
-                { period: 14, label: 'MA 14', color: '#2563EB' },
-                { period: 20, label: 'MA 20', color: '#E11D48' },
-                { period: 50, label: 'MA 50', color: '#7C3AED' }
-            ],
-            toggleMA(period) {
-                if (this.selectedMAs.includes(period)) {
-                    this.selectedMAs = this.selectedMAs.filter(p => p !== period);
-                } else {
-                    this.selectedMAs = [...this.selectedMAs, period].sort((a, b) => a - b);
-                }
-                this.renderMAChart();
-            },
-            calcSMA(data, period) {
-                return data.map((point, idx, arr) => {
-                    if (idx < period - 1) return [point[0], null];
-                    const slice = arr.slice(idx - period + 1, idx + 1);
-                    const sum = slice.reduce((acc, val) => acc + val[1], 0);
-                    return [point[0], sum / period];
-                });
-            },
-            async draw(s) {
-                if (!s) return;
-                this.lastSeries = s;
-                this.empty = s.actual.length === 0;
-                if (this.empty) { this.chartReady = true; return; }
-
-                if (this.mainChart) this.mainChart.destroy();
-                const rp = (v) => v === null ? '-' : 'Rp ' + Math.round(v).toLocaleString('id-ID');
-
-                // 1. Grafik Utama (Harga Aktual vs Prediksi LSTM)
-                this.mainChart = new ApexCharts(this.$refs.mainCanvas, {
-                    chart: {
-                        id: 'lstm-main-chart',
-                        group: 'stock-sync',
-                        type: 'line',
-                        height: 360,
-                        toolbar: { show: true },
-                        zoom: { enabled: true },
-                        animations: { speed: 400 },
-                        fontFamily: 'IBM Plex Sans, sans-serif'
-                    },
-                    series: [
-                        { name: 'Harga aktual', data: s.actual },
-                        { name: 'Prediksi LSTM', data: s.predicted }
-                    ],
-                    colors: ['#0F2A43', '#F2A93B'],
-                    stroke: { width: [2, 2], curve: 'straight' },
-                    xaxis: { type: 'datetime' },
-                    yaxis: { labels: { formatter: rp, minWidth: 80 } },
-                    tooltip: { x: { format: 'dd MMM yyyy' }, y: { formatter: rp } },
-                    legend: { position: 'top' },
-                    annotations: s.holdoutStart ? {
-                        xaxis: [{
-                            x: s.holdoutStart,
-                            borderColor: '#0E7C86',
-                            label: { text: 'Final holdout', style: { color: '#fff', background: '#0E7C86' } }
-                        }]
-                    } : {},
-                });
-
-                await this.mainChart.render();
-                await this.renderMAChart();
-                this.chartReady = true;
-            },
-            async renderMAChart() {
-                if (!this.lastSeries || this.empty) return;
-                if (this.maChart) this.maChart.destroy();
-
-                const rp = (v) => v === null ? '-' : 'Rp ' + Math.round(v).toLocaleString('id-ID');
-
-                // Garis dasar harga aktual (tipis/transparan) + garis MA yang dicentang
-                const maSeries = [
-                    { name: 'Harga penutupan', data: this.lastSeries.actual }
-                ];
-                const maColors = ['#94A3B8'];
-                const maWidths = [1.5];
-
-                this.maOptions.forEach(opt => {
-                    if (this.selectedMAs.includes(opt.period)) {
-                        maSeries.push({
-                            name: opt.label,
-                            data: this.calcSMA(this.lastSeries.actual, opt.period)
-                        });
-                        maColors.push(opt.color);
-                        maWidths.push(2);
-                    }
-                });
-
-                // 2. Grafik Analisa Teknikal (Sub-chart Moving Average di bawah)
-                this.maChart = new ApexCharts(this.$refs.maCanvas, {
-                    chart: {
-                        id: 'lstm-ma-chart',
-                        group: 'stock-sync',
-                        type: 'line',
-                        height: 250,
-                        toolbar: { show: false },
-                        zoom: { enabled: true },
-                        animations: { enabled: false },
-                        fontFamily: 'IBM Plex Sans, sans-serif'
-                    },
-                    series: maSeries,
-                    colors: maColors,
-                    stroke: { width: maWidths, curve: 'smooth' },
-                    xaxis: { type: 'datetime' },
-                    yaxis: { labels: { formatter: rp, minWidth: 80 } },
-                    tooltip: { x: { format: 'dd MMM yyyy' }, y: { formatter: rp } },
-                    legend: { position: 'top', horizontalAlign: 'left' },
-                    annotations: this.lastSeries.holdoutStart ? {
-                        xaxis: [{
-                            x: this.lastSeries.holdoutStart,
-                            borderColor: '#0E7C86'
-                        }]
-                    } : {},
-                });
-
-                await this.maChart.render();
-            }
-         }"
-         x-on:prediction-loading.window="chartReady = false"
-         x-on:prediction-loaded.window="draw($event.detail.series)"
-         class="relative mt-6 space-y-4">
-
-        {{-- Container Grafik Atas: Hasil Prediksi LSTM --}}
-        <div class="relative min-h-[380px] rounded-2xl border border-slate-200 bg-white p-4">
-            <div class="mb-1 flex items-center justify-between px-2">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Grafik Prediksi Model LSTM</span>
-            </div>
-            <div x-ref="mainCanvas"></div>
-
-            <div x-show="! chartReady" x-transition.opacity.duration.200ms class="absolute inset-4 z-10 flex flex-col gap-3 bg-white" aria-busy="true">
-                <x-skeleton class="h-6 w-48" />
-                <x-skeleton class="w-full flex-1" />
-                <x-skeleton class="h-4 w-full" />
-            </div>
-
-            <p x-show="empty" x-cloak class="absolute inset-0 z-20 flex items-center justify-center px-8 text-center text-slate-600">
-                Belum ada hasil prediksi untuk kombinasi ini. Administrator perlu mengunggah model dan hasil evaluasinya.
-            </p>
-        </div>
-
-        {{-- Container Grafik Bawah: Analisa Teknikal Moving Average (Multi-Select) --}}
-        <div x-show="! empty" class="relative rounded-2xl border border-slate-200 bg-white p-4">
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 px-2">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-800">Analisa Teknikal — Moving Average (SMA)</h2>
-                    <p class="text-xs text-slate-500">Pilih lebih dari satu periode MA untuk melihat sinyal tren dan perpotongan garis (crossover).</p>
-                </div>
-
-                {{-- Multi-select tombol toggle periode MA --}}
-                <div class="flex flex-wrap items-center gap-2">
-                    <template x-for="opt in maOptions" :key="opt.period">
-                        <button type="button"
-                                @click="toggleMA(opt.period)"
-                                :class="selectedMAs.includes(opt.period)
-                                    ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
-                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'"
-                                class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all">
-                            <span class="h-2.5 w-2.5 rounded-full" :style="'background-color:' + opt.color"></span>
-                            <span x-text="opt.label"></span>
-                        </button>
-                    </template>
-                </div>
-            </div>
-
-            <div x-ref="maCanvas"></div>
-
-            <div x-show="! chartReady" class="absolute inset-4 z-10 flex flex-col gap-3 bg-white">
-                <x-skeleton class="h-5 w-40" />
-                <x-skeleton class="w-full flex-1" />
-            </div>
-        </div>
-    </div>
-
-    {{-- ===================== Metrik + prediksi berikutnya + tabel perbandingan ===================== --}}
+    {{-- ===================== Metrik + tabel model terbaik ===================== --}}
     <div class="mt-8">
         @unless ($ready)
             <x-prediction-skeleton />
         @else
-            {{-- Skeleton muncul selama request ganti saham/lookback --}}
-            <div wire:loading wire:target="{{ $skeletonTargets }}"><x-prediction-skeleton /></div>
+            {{-- Skeleton muncul selama request ganti saham --}}
+            <div wire:loading wire:target="selectStock"><x-prediction-skeleton /></div>
 
-            <div wire:loading.remove wire:target="{{ $skeletonTargets }}">
+            <div wire:loading.remove wire:target="selectStock">
                 <div class="grid gap-4 sm:grid-cols-3">
                     @foreach ([
                         'MAE (Rp)'  => [$model?->wfv_mae,  $model?->holdout_mae,  2],
@@ -273,19 +232,13 @@
                     @endforeach
                 </div>
 
-                <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-                    <div class="text-sm font-medium text-slate-600">Prediksi hari bursa berikutnya ({{ $ticker }}, lookback {{ $lookback }})</div>
-                    @if ($this->nextDay)
-                        <div class="mt-2 font-display text-3xl font-extrabold">Rp {{ $fmt($this->nextDay['next_close_pred'] ?? null, 0) }}</div>
-                        <div class="mt-1 text-sm text-slate-600">Untuk tanggal {{ $this->nextDay['next_date'] ?? '-' }}</div>
-                    @else
-                        <div class="mt-2 text-slate-600">Layanan prediksi Python belum aktif. Grafik di atas tetap memakai hasil yang tersimpan.</div>
-                    @endif
-                </div>
+                @if ($model && is_null($model->wfv_mape))
+                    <p class="mt-3 text-sm text-slate-600">Metrik evaluasi belum tersedia untuk model ini{{ $model->is_transfer ? ' (model transfer belum divalidasi)' : '' }}.</p>
+                @endif
 
                 <div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
                     <table class="w-full text-left text-sm">
-                        <caption class="px-5 pt-5 text-left font-display text-lg font-extrabold">{{ count($lookbacks) > 1 ? 'Perbandingan lookback window' : 'Model terbaik' }} untuk {{ $ticker }}</caption>
+                        <caption class="px-5 pt-5 text-left font-display text-lg font-extrabold">Model terbaik untuk {{ $ticker }}</caption>
                         <thead class="text-slate-600">
                             <tr>
                                 <th class="px-5 py-3 font-medium">Lookback</th>
@@ -296,25 +249,95 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($lookbacks as $lb)
-                                @php $m = $this->models->get($lb); @endphp
-                                <tr wire:key="row-{{ $lb }}" @class(['border-t border-slate-100', 'bg-mist font-semibold' => $lb === $lookback])>
-                                    <td class="px-5 py-3">
-                                        {{ $lb }} hari
-                                        @if (count($lookbacks) > 1 && $lb === $this->bestLookback)
-                                            <span class="ml-2 rounded-md bg-harbor px-2 py-0.5 text-xs font-semibold text-white">MAPE terendah</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-5 py-3">{{ $fmt($m?->wfv_mae) }}</td>
-                                    <td class="px-5 py-3">{{ $fmt($m?->wfv_rmse) }}</td>
-                                    <td class="px-5 py-3">{{ $fmt($m?->wfv_mape, 3) }}</td>
-                                    <td class="px-5 py-3">{{ $fmt($m?->holdout_mape, 3) }}</td>
+                            @forelse ($this->models as $lb => $m)
+                                <tr wire:key="row-{{ $lb }}" class="border-t border-slate-100 bg-mist font-semibold">
+                                    <td class="px-5 py-3">{{ $lb }} hari</td>
+                                    <td class="px-5 py-3">{{ $fmt($m->wfv_mae) }}</td>
+                                    <td class="px-5 py-3">{{ $fmt($m->wfv_rmse) }}</td>
+                                    <td class="px-5 py-3">{{ $fmt($m->wfv_mape, 3) }}</td>
+                                    <td class="px-5 py-3">{{ $fmt($m->holdout_mape, 3) }}</td>
                                 </tr>
-                            @endforeach
+                            @empty
+                                <tr><td colspan="5" class="px-5 py-6 text-center text-slate-600">Belum ada model aktif untuk saham ini.</td></tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
         @endunless
     </div>
+
+    {{-- ===================== Analisa Teknikal ===================== --}}
+    {{-- Indikator (SMA, SnR, Volume MA, MACD) dihitung di browser dari data OHLCV: ganti rentang atau
+         toggle tidak perlu request ke server. 3 panel disinkronkan lewat chart.group. --}}
+    <section wire:ignore
+             x-data="{
+                rows: [], mode: 'none', ready: false, range: '6M', showSnr: true,
+                sma: { 7: false, 14: false, 20: true, 50: true }, charts: [],
+                load(p) {
+                    this.rows = p.rows; this.mode = p.mode;
+                    if (this.mode === 'none') { this.ready = true; return; }
+                    this.ready = false;
+                    this.$nextTick(() => this.draw());
+                },
+                async draw() {
+                    this.ready = false;
+                    this.charts = await window.TA.draw(this.$refs,
+                        { rows: this.rows, mode: this.mode, range: this.range, sma: this.sma, showSnr: this.showSnr }, this.charts);
+                    this.ready = true;
+                }
+             }"
+             x-on:prediction-loading.window="ready = false"
+             x-on:technical-loaded.window="load($event.detail.payload)"
+             class="mt-12">
+
+        <h2 class="font-display text-2xl font-extrabold tracking-tight">Analisa teknikal</h2>
+
+        <div x-show="mode !== 'none'" x-cloak class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div class="flex gap-1.5" role="group" aria-label="Rentang waktu">
+                <template x-for="r in ['3M', '6M', '1Y', 'All']" :key="r">
+                    <button type="button" x-on:click="range = r; draw()" x-text="r"
+                            :class="range === r ? 'bg-ink text-white' : 'bg-mist text-ink hover:bg-slate-200'"
+                            class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-95"></button>
+                </template>
+            </div>
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Garis SMA">
+                <template x-for="n in [7, 14, 20, 50]" :key="n">
+                    <label :class="sma[n] ? 'border-harbor bg-mist' : 'border-slate-300 bg-white'"
+                           class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 active:scale-95">
+                        <input type="checkbox" class="sr-only" x-model="sma[n]" x-on:change="draw()">
+                        <span x-text="'SMA ' + n"></span>
+                    </label>
+                </template>
+            </div>
+            <label :class="showSnr ? 'border-harbor bg-mist' : 'border-slate-300 bg-white'"
+                   class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 active:scale-95">
+                <input type="checkbox" class="sr-only" x-model="showSnr" x-on:change="draw()">
+                Tampilkan SnR
+            </label>
+        </div>
+
+        <p x-show="mode === 'close_only'" x-cloak class="mt-3 rounded-xl border border-signal/50 bg-amber-50 px-4 py-3 text-sm">
+            Mode terbatas: hanya harga penutupan dari hasil impor prediksi, tanpa candlestick dan volume.
+            Jalankan php artisan lstm:import-ohlcv untuk tampilan lengkap.
+        </p>
+
+        <div class="relative mt-4 min-h-[300px] rounded-2xl border border-slate-200 bg-white p-4">
+            <p x-show="mode === 'none' && ready" x-cloak class="py-16 text-center text-slate-600">
+                Data harga belum tersedia untuk saham ini. Jalankan php artisan lstm:import-results lalu php artisan lstm:import-ohlcv.
+            </p>
+
+            <div x-show="mode !== 'none'">
+                <div x-ref="price"></div>
+                <div x-ref="volume" x-show="mode === 'ohlcv'"></div>
+                <div x-ref="macd"></div>
+            </div>
+
+            <div x-show="! ready" x-transition.opacity.duration.200ms class="absolute inset-4 z-10 flex flex-col gap-3 bg-white" aria-busy="true">
+                <x-skeleton class="h-[300px] w-full" />
+                <x-skeleton class="h-[100px] w-full" />
+                <x-skeleton class="h-[140px] w-full" />
+            </div>
+        </div>
+    </section>
 </div>

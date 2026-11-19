@@ -28,6 +28,7 @@
                     <a href="{{ route('watchlists.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Watchlist</a>
                     @if (auth()->user()->role === 'administrator')
                         <a href="{{ route('admin.models.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Kelola model</a>
+                        <a href="{{ route('admin.datasets.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Kelola dataset</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">@csrf
                         <x-button type="submit" variant="ghost" class="!px-4 !py-2">Keluar</x-button>
