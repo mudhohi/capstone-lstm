@@ -27,13 +27,13 @@
                         <td class="px-5 py-3">{{ $m->lookback_window }} hari</td>
                         <td class="px-5 py-3 text-slate-600">{{ $m->file_path }} <span class="text-xs">(.{{ $m->file_format }})</span></td>
                         <td class="px-5 py-3">{{ is_null($m->wfv_mape) ? '-' : number_format($m->wfv_mape, 3, ',', '.') }}</td>
-                        <td class="px-5 py-3">{{ $m->is_active ? 'Aktif' : 'Nonaktif' }}{{ $m->is_transfer ? ' (transfer)' : '' }}</td>
+                        <td class="px-5 py-3">{{ $m->is_active ? 'Aktif' : 'Nonaktif' }}{{ $m->isGeneral() ? ' (general)' : ($m->is_transfer ? ' (transfer)' : '') }}</td>
                         <td class="flex justify-end gap-2 px-5 py-3">
-                            <a href="{{ route('admin.models.edit', $m) }}" class="rounded-lg px-3 py-1.5 font-medium text-harbor transition-all duration-200 hover:bg-white active:scale-95">Ubah</a>
+                            <a href="{{ route('admin.models.edit', $m) }}" class="rounded-lg px-3 py-1.5 font-medium text-harbor transition-all duration-200 hover:bg-white btn-fx">Ubah</a>
                             <form method="POST" action="{{ route('admin.models.destroy', $m) }}"
                                   x-data x-on:submit="if (! confirm('Hapus model ini beserta seluruh prediksinya?')) $event.preventDefault()">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="rounded-lg px-3 py-1.5 font-medium text-red-700 transition-all duration-200 hover:bg-red-50 active:scale-95">Hapus</button>
+                                <button type="submit" class="rounded-lg px-3 py-1.5 font-medium text-red-700 transition-all duration-200 hover:bg-red-50 btn-fx">Hapus</button>
                             </form>
                         </td>
                     </tr>

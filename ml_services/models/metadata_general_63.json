@@ -1,0 +1,23 @@
+{
+  "model_type": "general_return",
+  "lookback": 63,
+  "feature": "log_return",
+  "training_date": "2026-11-19T07:40:39.876743+00:00",
+  "training_tickers": [
+    "BBCA.JK",
+    "BBNI.JK",
+    "BBRI.JK",
+    "BMRI.JK"
+  ],
+  "target": "next_day_log_return",
+  "scaler_type": "RobustScaler",
+  "input_shape": [
+    63,
+    1
+  ],
+  "training_start": "2010-01-05",
+  "training_end": "2023-05-26",
+  "train_ratio_per_ticker": 0.8,
+  "tensorflow_version": "2.21.0",
+  "sklearn_version": "1.6.1"
+}

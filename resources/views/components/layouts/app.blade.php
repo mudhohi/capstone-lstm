@@ -20,15 +20,15 @@
             <a href="{{ route('landing') }}" class="font-display text-xl font-extrabold tracking-tight">Lookback Bank</a>
 
             <div class="hidden items-center gap-1 md:flex">
-                <a href="{{ route('landing') }}#tentang" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Tentang proyek</a>
-                <a href="{{ route('landing') }}#saham" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Saham</a>
-                <a href="{{ route('landing') }}#fitur" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Fitur</a>
+                <a href="{{ route('landing') }}#tentang" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Tentang proyek</a>
+                <a href="{{ route('landing') }}#saham" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Saham</a>
+                <a href="{{ route('landing') }}#fitur" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Fitur</a>
                 @auth
-                    <a href="{{ route('dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Dashboard</a>
-                    <a href="{{ route('watchlists.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Watchlist</a>
+                    <a href="{{ route('dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Dashboard</a>
+                    <a href="{{ route('watchlists.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Watchlist</a>
                     @if (auth()->user()->role === 'administrator')
-                        <a href="{{ route('admin.models.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Kelola model</a>
-                        <a href="{{ route('admin.datasets.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist active:scale-95">Kelola dataset</a>
+                        <a href="{{ route('admin.models.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Kelola model</a>
+                        <a href="{{ route('admin.datasets.index') }}" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-mist btn-fx">Kelola dataset</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">@csrf
                         <x-button type="submit" variant="ghost" class="!px-4 !py-2">Keluar</x-button>
@@ -39,7 +39,7 @@
                 @endauth
             </div>
 
-            <button type="button" class="rounded-lg p-2 transition-transform duration-150 active:scale-90 md:hidden"
+            <button type="button" class="rounded-lg p-2 transition-transform duration-150 btn-fx md:hidden"
                     x-on:click="open = !open" :aria-expanded="open" aria-label="Buka menu">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>

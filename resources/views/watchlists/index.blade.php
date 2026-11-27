@@ -28,7 +28,7 @@
                     <x-button :href="route('dashboard', $item->stock->ticker)" class="!px-4 !py-2">Lihat prediksi</x-button>
                     <form method="POST" action="{{ route('watchlists.destroy', $item->stock_id) }}">
                         @csrf @method('DELETE')
-                        <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-95">Hapus</button>
+                        <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-red-50 hover:text-red-700 btn-fx">Hapus</button>
                     </form>
                 </div>
             </x-card>

@@ -22,7 +22,7 @@
             <template x-for="n in [21, 42, 63, 126]" :key="n">
                 <button type="button" x-on:click="w = n" x-text="n + ' hari'"
                         :class="w === n ? 'bg-ink text-white' : 'bg-mist text-ink hover:bg-slate-200'"
-                        class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-95"></button>
+                        class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 btn-fx"></button>
             </template>
         </div>
 

@@ -80,6 +80,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Kelola dataset OHLCV: perbarui emiten existing atau tambah emiten baru
         Route::get('datasets', [DatasetController::class, 'index'])->name('datasets.index');
-        Route::post('datasets', [DatasetController::class, 'store'])->name('datasets.store');
+        Route::post('datasets', [DatasetController::class, 'store'])->name('datasets.store');           // unggah CSV (cadangan)
+        Route::post('datasets/fetch', [DatasetController::class, 'fetch'])->name('datasets.fetch');     // tarik dari Yahoo Finance
+        Route::post('datasets/{stock}/refresh', [DatasetController::class, 'refresh'])->name('datasets.refresh');
+        Route::delete('datasets/{stock}', [DatasetController::class, 'destroy'])->name('datasets.destroy');
     });
 });

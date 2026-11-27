@@ -7,3 +7,4 @@ pandas
 joblib
 scikit-learn
 tensorflow>=2.16   # file .keras memerlukan Keras 3
+yfinance            # tarik OHLCV dari Yahoo Finance (halaman admin /admin/datasets)

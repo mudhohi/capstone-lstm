@@ -24,7 +24,7 @@
                         wire:click="selectStock('{{ $s->ticker }}')"
                         x-on:click="$dispatch('prediction-loading')"
                         @class([
-                            'rounded-xl border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95',
+                            'rounded-xl border px-5 py-2.5 text-sm font-semibold transition-all duration-200 btn-fx',
                             'border-ink bg-ink text-white' => $s->ticker === $ticker,
                             'border-slate-300 bg-white hover:-translate-y-0.5 hover:border-harbor hover:shadow-md' => $s->ticker !== $ticker,
                         ])>
@@ -46,7 +46,7 @@
                 </h2>
                 <span class="rounded-full border border-harbor/40 bg-mist px-3 py-1 text-xs font-semibold text-ink">
                     @if ($model)
-                        Model aktif: lookback {{ $lookback }} hari perdagangan{{ $model->is_transfer ? ' (transfer)' : '' }}
+                        Model aktif: lookback {{ $lookback }} hari perdagangan{{ $model->isGeneral() ? ' (model general)' : ($model->is_transfer ? ' (transfer)' : '') }}
                     @else
                         Belum ada model aktif
                     @endif
@@ -59,7 +59,12 @@
         @endunless
     </div>
 
-    @if ($ready && $model?->is_transfer)
+    @if ($ready && $model?->isGeneral())
+        <p class="mt-3 rounded-xl border border-signal/50 bg-amber-50 px-4 py-3 text-sm">
+            Model general: satu model berbasis log-return yang dilatih pada BBCA, BBNI, BBRI, dan BMRI, lalu dipakai untuk {{ $ticker }}.
+            Harga diproyeksikan dari penutupan terakhir dengan e^r. Model ini belum dievaluasi pada {{ $ticker }}, jadi akurasinya belum diketahui.
+        </p>
+    @elseif ($ready && $model?->is_transfer)
         <p class="mt-3 rounded-xl border border-signal/50 bg-amber-50 px-4 py-3 text-sm">
             Model transfer: prediksi memakai model {{ $this->baseLabel }} dengan scaler yang disesuaikan pada harga {{ $ticker }}.
             Model ini belum dilatih dan divalidasi khusus untuk {{ $ticker }}, jadi akurasinya belum diketahui.
@@ -233,7 +238,7 @@
                 </div>
 
                 @if ($model && is_null($model->wfv_mape))
-                    <p class="mt-3 text-sm text-slate-600">Metrik evaluasi belum tersedia untuk model ini{{ $model->is_transfer ? ' (model transfer belum divalidasi)' : '' }}.</p>
+                    <p class="mt-3 text-sm text-slate-600">Metrik evaluasi belum tersedia untuk model ini{{ ($model->isGeneral() || $model->is_transfer) ? ' (belum dievaluasi pada emiten ini)' : '' }}.</p>
                 @endif
 
                 <div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
@@ -298,20 +303,20 @@
                 <template x-for="r in ['3M', '6M', '1Y', 'All']" :key="r">
                     <button type="button" x-on:click="range = r; draw()" x-text="r"
                             :class="range === r ? 'bg-ink text-white' : 'bg-mist text-ink hover:bg-slate-200'"
-                            class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-95"></button>
+                            class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 btn-fx"></button>
                 </template>
             </div>
             <div class="flex flex-wrap gap-1.5" role="group" aria-label="Garis SMA">
                 <template x-for="n in [7, 14, 20, 50]" :key="n">
                     <label :class="sma[n] ? 'border-harbor bg-mist' : 'border-slate-300 bg-white'"
-                           class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 active:scale-95">
+                           class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 btn-fx">
                         <input type="checkbox" class="sr-only" x-model="sma[n]" x-on:change="draw()">
                         <span x-text="'SMA ' + n"></span>
                     </label>
                 </template>
             </div>
             <label :class="showSnr ? 'border-harbor bg-mist' : 'border-slate-300 bg-white'"
-                   class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 active:scale-95">
+                   class="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-within:ring-4 focus-within:ring-harbor/30 btn-fx">
                 <input type="checkbox" class="sr-only" x-model="showSnr" x-on:change="draw()">
                 Tampilkan SnR
             </label>

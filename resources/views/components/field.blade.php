@@ -19,7 +19,7 @@
                ]) }}>
         @if ($isPassword)
             <button type="button" x-on:click="show = ! show" x-text="show ? 'Sembunyikan' : 'Lihat'"
-                    class="absolute inset-y-0 right-3 text-xs font-semibold text-harbor transition-transform duration-150 active:scale-95"></button>
+                    class="absolute inset-y-0 right-3 text-xs font-semibold text-harbor transition-transform duration-150 btn-fx"></button>
         @endif
     </div>
     @error($name)

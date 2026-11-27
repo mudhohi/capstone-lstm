@@ -33,3 +33,16 @@
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
 }
+
+/* Smooth scrolling untuk seluruh halaman (anchor #tentang, #saham, #fitur, dst.) */
+html { scroll-behavior: smooth; }
+
+/* Micro-interaction tombol: terangkat saat hover, tertekan saat diklik.
+   Dipakai di semua tombol, pill, toggle, dan tautan bergaya tombol. */
+.btn-fx {
+  @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.97];
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn-fx { @apply transition-none hover:translate-y-0 active:scale-100; }
+}

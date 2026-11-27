@@ -15,11 +15,11 @@
     <div class="mt-6 flex items-center justify-between text-sm">
         <form method="POST" action="{{ route('verification.otp.resend') }}">
             @csrf
-            <button type="submit" class="font-semibold text-harbor underline-offset-4 transition-transform duration-150 hover:underline active:scale-95">Kirim ulang kode</button>
+            <button type="submit" class="font-semibold text-harbor underline-offset-4 transition-transform duration-150 hover:underline btn-fx">Kirim ulang kode</button>
         </form>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button type="submit" class="text-slate-600 underline-offset-4 hover:underline">Keluar</button>
+            <button type="submit" class="btn-fx rounded-lg px-2 py-1 text-slate-600 underline-offset-4 hover:underline">Keluar</button>
         </form>
     </div>
 </section>
